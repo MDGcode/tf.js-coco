@@ -74,8 +74,8 @@ function predictWebcam() {
             + Math.round(parseFloat(predictions[n].score) * 100) 
             + '% confidence.';
         p.style = 'margin-left: ' + predictions[n].bbox[0] + 'px; margin-top: '
-            + (predictions[n].bbox[1] ) + 'px; width: ' 
-            + (predictions[n].bbox[2] ) + 'px; top: 0; left: 0;';
+            + (predictions[n].bbox[1] - 10 ) + 'px; width: ' 
+            + (predictions[n].bbox[2] - 10 ) + 'px; top: 0; left: 0;';
 
         const highlighter = document.createElement('div');
         highlighter.setAttribute('class', 'highlighter');
