@@ -1,7 +1,7 @@
 body {
   font-family: helvetica, arial, sans-serif;
   margin: 2em;
-  background-color:#0f172a;
+  color: #3D3D3D;
 }
 
 h1 {
@@ -29,7 +29,7 @@ section {
   position: relative;
   float: left;
   width: calc(100% - 20px);
-  margin: auto;
+  margin: 10px;
   cursor: pointer;
 }
 
