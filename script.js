@@ -2,6 +2,7 @@ const video = document.getElementById('webcam');
 const liveView = document.getElementById('liveView');
 const demosSection = document.getElementById('demos');
 const enableWebcamButton = document.getElementById('webcamButton');
+const personCountEl = document.getElementById('personCount');
 
 // Check if webcam access is supported.
 function getUserMediaSupported() {
@@ -58,6 +59,9 @@ var children = [];
 function predictWebcam() {
   // Now let's start classifying a frame in the stream.
   model.detect(video).then(function (predictions) {
+    // Update person count
+    let personCount = 0;
+
     // Remove any highlighting we did previous frame.
     for (let i = 0; i < children.length; i++) {
       liveView.removeChild(children[i]);
@@ -67,8 +71,13 @@ function predictWebcam() {
     // Now lets loop through predictions and draw them to the live view if
     // they have a high confidence score.
     for (let n = 0; n < predictions.length; n++) {
+      // Count persons
+      if (predictions[n].class === 'person' && predictions[n].score > 0.50) {
+        personCount++;
+      }
+
       // If we are over 66% sure we are sure we classified it right, draw it!
-      if (predictions[n].score > 0.66) {
+      if (predictions[n].score > 0.50) {
         const p = document.createElement('p');
         p.innerText = predictions[n].class  + ' - with ' 
             + Math.round(parseFloat(predictions[n].score) * 100) 
@@ -89,6 +98,11 @@ function predictWebcam() {
         children.push(highlighter);
         children.push(p);
       }
+    }
+
+    // Update the person count element text
+    if (personCountEl) {
+      personCountEl.innerText = 'Persons: ' + personCount;
     }
     
     // Call this function again to keep predicting when the browser is ready.
