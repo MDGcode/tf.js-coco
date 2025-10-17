@@ -3,11 +3,15 @@ const liveView = document.getElementById('liveView');
 const demosSection = document.getElementById('demos');
 const enableWebcamButton = document.getElementById('webcamButton');
 const cameraToggleButton = document.getElementById('cameraToggleButton');
-const cameraSelect = document.getElementById('cameraSelect');
+const personCountEl = document.getElementById('personCount');
 
 let currentFacingMode = 'user'; // 'user' (front) or 'environment' (rear)
 let activeStream = null;
-let availableCameras = [];
+
+// Track peak persons in current 30s window
+let maxPersons = 0;
+let windowStart = Date.now();
+const WINDOW_MS = 30 * 1000;
 
 // Check if webcam access is supported.
 function getUserMediaSupported() {
@@ -15,42 +19,12 @@ function getUserMediaSupported() {
     navigator.mediaDevices.getUserMedia);
 }
 
-// Populate the camera selection dropdown
-async function loadCameraList() {
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-    
-    availableCameras = videoDevices;
-    
-    // Clear existing options (keep the default "Select Camera..." option)
-    cameraSelect.innerHTML = '<option value="">Select Camera...</option>';
-    
-    // Add camera options
-    videoDevices.forEach((device, index) => {
-      const option = document.createElement('option');
-      option.value = device.deviceId;
-      // Use label if available, otherwise create a generic name
-      option.textContent = device.label || `Camera ${index + 1}`;
-      cameraSelect.appendChild(option);
-    });
-    
-    console.log('Found cameras:', videoDevices.length);
-  } catch (err) {
-    console.error('Error getting camera list:', err);
-  }
-}
-
 // If webcam supported, add event listener to button for when user
 // wants to activate it to call enableCam function which we will 
 // define in the next step.
 if (getUserMediaSupported()) {
   enableWebcamButton.addEventListener('click', enableCam);
-  cameraToggleButton.addEventListener('click', toggleCamera);
-  cameraSelect.addEventListener('change', onCameraSelect);
-  
-  // Load camera list on page load
-  loadCameraList();
+  cameraToggleButton.addEventListener('click', toggleCameraFacingMode);
 } else {
   console.warn('getUserMedia() is not supported by your browser');
 }
@@ -113,74 +87,12 @@ function enableCam(event) {
   // Hide the button once clicked.
   event.target.classList.add('removed');  
   
-  // Start with the current facing mode
-  startCamera();
-}
-
-function startCamera() {
-  // Stop any existing stream
-  if (activeStream) {
-    activeStream.getTracks().forEach(track => track.stop());
-  }
-
-  let constraints;
-  
-  // Use specific device ID if selected from dropdown
-  const selectedDeviceId = cameraSelect.value;
-  if (selectedDeviceId) {
-    constraints = {
-      video: {
-        deviceId: { exact: selectedDeviceId }
-      }
-    };
-  } else {
-    // Fallback to facingMode for mobile cameras
-    constraints = {
-      video: {
-        facingMode: currentFacingMode
-      }
-    };
-  }
-
-  // Activate the webcam stream.
-  navigator.mediaDevices.getUserMedia(constraints)
-    .then(function(stream) {
-      activeStream = stream;
-      video.srcObject = stream;
-      video.addEventListener('loadeddata', predictWebcam);
-    })
-    .catch(function(err) {
-      // Fallback: try without specific constraints
-      console.warn('Camera with constraints failed, trying fallback:', err);
-      const fallbackConstraints = { video: true };
-      
-      navigator.mediaDevices.getUserMedia(fallbackConstraints)
-        .then(function(stream) {
-          activeStream = stream;
-          video.srcObject = stream;
-          video.addEventListener('loadeddata', predictWebcam);
-        })
-        .catch(function(fallbackErr) {
-          console.error('Camera access failed completely:', fallbackErr);
-        });
-    });
-}
-
-function onCameraSelect() {
-  // Only restart camera if it's already active
-  if (activeStream) {
-    startCamera();
-  }
-}
-
-function toggleCamera() {
-  // Toggle between front and rear camera
-  currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-  
-  // Only restart if camera is already active
-  if (activeStream) {
-    startCamera();
-  }
+  // Start stream with current facing mode
+  startStreamWithFacingMode(currentFacingMode).then(stream => {
+    video.addEventListener('loadeddata', predictWebcam);
+  }).catch(err => {
+    console.error('Error starting webcam:', err);
+  });
 }
 // Store the resulting model in the global scope of our app.
 var model = undefined;
