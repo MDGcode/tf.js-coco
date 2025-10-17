@@ -55,6 +55,53 @@ if (getUserMediaSupported()) {
   console.warn('getUserMedia() is not supported by your browser');
 }
 
+function stopActiveStream() {
+  if (activeStream) {
+    activeStream.getTracks().forEach(t => t.stop());
+    activeStream = null;
+    video.srcObject = null;
+  }
+}
+
+// Try to start webcam with the selected facing mode. If facingMode isn't
+// supported, fall back to default constraints and let the device pick.
+function startStreamWithFacingMode(facingMode) {
+  const constraints = {
+    video: { facingMode: { ideal: facingMode } }
+  };
+
+  return navigator.mediaDevices.getUserMedia(constraints)
+    .catch(err => {
+      // Fallback: try without facingMode constraint
+      console.warn('facingMode constraint failed, falling back:', err);
+      return navigator.mediaDevices.getUserMedia({ video: true });
+    })
+    .then(stream => {
+      activeStream = stream;
+      video.srcObject = stream;
+      return stream;
+    });
+}
+
+// Toggle the facing mode and restart stream if active
+function toggleCameraFacingMode() {
+  currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
+  // If not active yet, just change preference for when enabling webcam
+  if (!activeStream) return;
+
+  // Restart stream with new facing mode
+  stopActiveStream();
+  startStreamWithFacingMode(currentFacingMode).then(() => {
+    // If video already loaded, restart detection
+    if (video.readyState >= 2) {
+      // remove any previous listener to avoid duplicates
+      video.removeEventListener('loadeddata', predictWebcam);
+      video.addEventListener('loadeddata', predictWebcam);
+    }
+  }).catch(err => console.error('Could not switch camera:', err));
+}
+
 // Placeholder function for next step. Paste over this in the next step.
 // Enable the live webcam view and start classification.
 function enableCam(event) {
@@ -153,6 +200,9 @@ var children = [];
 function predictWebcam() {
   // Now let's start classifying a frame in the stream.
   model.detect(video).then(function (predictions) {
+    // Update person count and collect per-person confidences
+    let personCount = 0;
+
     // Remove any highlighting we did previous frame.
     for (let i = 0; i < children.length; i++) {
       liveView.removeChild(children[i]);
@@ -162,28 +212,54 @@ function predictWebcam() {
     // Now lets loop through predictions and draw them to the live view if
     // they have a high confidence score.
     for (let n = 0; n < predictions.length; n++) {
-      // If we are over 66% sure we are sure we classified it right, draw it!
-      if (predictions[n].score > 0.66) {
+      const pred = predictions[n];
+
+      // Count persons (use a low threshold for counting so we don't miss)
+      if (pred.class === 'person' && pred.score > 0.1) {
+        personCount++;
+      }
+
+      // If we are over 50% sure we are sure we classified it right, draw it!
+      if (pred.score > 0.50) {
         const p = document.createElement('p');
-        p.innerText = predictions[n].class  + ' - with ' 
-            + Math.round(parseFloat(predictions[n].score) * 100) 
+        p.innerText = pred.class  + ' - with ' 
+            + Math.round(parseFloat(pred.score) * 100) 
             + '% confidence.';
-        p.style = 'margin-left: ' + predictions[n].bbox[0] + 'px; margin-top: '
-            + (predictions[n].bbox[1] - 10 ) + 'px; width: ' 
-            + (predictions[n].bbox[2] - 10 ) + 'px; top: 0; left: 0;';
+        p.style = 'margin-left: ' + pred.bbox[0] + 'px; margin-top: '
+            + (pred.bbox[1] - 10 ) + 'px; width: ' 
+            + (pred.bbox[2] - 10 ) + 'px; top: 0; left: 0;';
 
         const highlighter = document.createElement('div');
         highlighter.setAttribute('class', 'highlighter');
-        highlighter.style = 'left: ' + predictions[n].bbox[0] + 'px; top: '
-            + predictions[n].bbox[1] + 'px; width: ' 
-            + predictions[n].bbox[2] + 'px; height: '
-            + predictions[n].bbox[3] + 'px;';
+        highlighter.style = 'left: ' + pred.bbox[0] + 'px; top: '
+            + pred.bbox[1] + 'px; width: ' 
+            + pred.bbox[2] + 'px; height: '
+            + pred.bbox[3] + 'px;';
 
         liveView.appendChild(highlighter);
         liveView.appendChild(p);
         children.push(highlighter);
         children.push(p);
       }
+    }
+
+    // Update the person count element text
+    if (personCountEl) {
+      personCountEl.innerText = 'Persons: ' + personCount;
+    }
+
+    // Update max persons for this 30s window
+    const now = Date.now();
+    if (now - windowStart > WINDOW_MS) {
+      // reset window
+      windowStart = now;
+      maxPersons = personCount;
+    } else {
+      if (personCount > maxPersons) maxPersons = personCount;
+    }
+
+    if (personMaxEl) {
+      personMaxEl.innerText = 'Max (30s): ' + maxPersons;
     }
     
     // Call this function again to keep predicting when the browser is ready.
