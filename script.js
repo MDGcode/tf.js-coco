@@ -5,6 +5,9 @@ const enableWebcamButton = document.getElementById('webcamButton');
 const personCountEl = document.getElementById('personCount');
 const cameraSelect = document.getElementById('cameraSelect');
 const cameraLabel = document.getElementById('cameraLabel');
+const personThreshold = document.getElementById('personThreshold');
+const personThresholdValue = document.getElementById('personThresholdValue');
+const thresholdLabel = document.getElementById('thresholdLabel');
 
 // Check if webcam access is supported.
 function getUserMediaSupported() {
@@ -40,6 +43,9 @@ function enableCam(event) {
 // Store the resulting model in the global scope of our app.
 var model = undefined;
 var currentStream = null; // holds the active MediaStream
+
+// default threshold (0-100 range UI -> 0.0-1.0)
+let personScoreThreshold = 0.40;
 
 // Start camera stream for given deviceId (or default if undefined)
 async function startStream(deviceId) {
@@ -94,6 +100,15 @@ async function populateCameraList() {
       cameraLabel.style.display = '';
     }
 
+    // Show threshold controls when demo is ready
+    if (personThreshold && personThresholdValue && thresholdLabel) {
+      personThreshold.style.display = '';
+      personThresholdValue.style.display = '';
+      thresholdLabel.style.display = '';
+      personThreshold.value = Math.round(personScoreThreshold * 100);
+      personThresholdValue.innerText = personThreshold.value + '%';
+    }
+
     // Stop temporary stream used for permissions
     if (tempStream) {
       tempStream.getTracks().forEach(t => t.stop());
@@ -101,6 +116,15 @@ async function populateCameraList() {
   } catch (e) {
     console.error('Error enumerating devices:', e);
   }
+}
+
+// Update threshold from UI
+if (personThreshold) {
+  personThreshold.addEventListener('input', function() {
+    const v = parseInt(personThreshold.value, 10);
+    personScoreThreshold = v / 100;
+    if (personThresholdValue) personThresholdValue.innerText = v + '%';
+  });
 }
 
 // If user changes selected camera while webcam is active, restart stream
@@ -132,12 +156,12 @@ function predictWebcam() {
     // they have a high confidence score.
     for (let n = 0; n < predictions.length; n++) {
       // Count persons
-      if (predictions[n].class === 'person' && predictions[n].score > 0.40) {
+      if (predictions[n].class === 'person' && predictions[n].score > personScoreThreshold) {
         personCount++;
       }
 
       // If we are over 66% sure we are sure we classified it right, draw it!
-      if (predictions[n].score > 0.40) {
+      if (predictions[n].score > personScoreThreshold) {
         const p = document.createElement('p');
         p.innerText = predictions[n].class  + ' - with ' 
             + Math.round(parseFloat(predictions[n].score) * 100) 

@@ -14,6 +14,10 @@
         <button id="webcamButton">Enable Webcam</button>
         <label for="cameraSelect" id="cameraLabel" class="camera-label" style="display:none;margin-left:8px;">Camera:</label>
         <select id="cameraSelect" style="display:none;margin-left:6px;"></select>
+        <!-- Person threshold UI -->
+        <label for="personThreshold" id="thresholdLabel" style="display:none;margin-left:12px;">Person threshold:</label>
+        <input id="personThreshold" type="range" min="0" max="100" value="40" style="display:none;vertical-align:middle;margin-left:6px;">
+        <span id="personThresholdValue" style="display:none;margin-left:8px;">40%</span>
         <!-- Person count display -->
         <div id="personCount" class="person-count">Persons: 0</div>
         <video id="webcam" autoplay muted width="640" height="480"></video>
