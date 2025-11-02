@@ -3,6 +3,8 @@ const liveView = document.getElementById('liveView');
 const demosSection = document.getElementById('demos');
 const enableWebcamButton = document.getElementById('webcamButton');
 const personCountEl = document.getElementById('personCount');
+const cameraSelect = document.getElementById('cameraSelect');
+const cameraLabel = document.getElementById('cameraLabel');
 
 // Check if webcam access is supported.
 function getUserMediaSupported() {
@@ -30,30 +32,86 @@ function enableCam(event) {
   // Hide the button once clicked.
   event.target.classList.add('removed');  
   
-  // getUsermedia parameters to force video but not audio.
-  const constraints = {
-    video: true
-  };
-
-  // Activate the webcam stream.
-  navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
-    video.srcObject = stream;
-    video.addEventListener('loadeddata', predictWebcam);
-  });
+  // Start stream using currently selected camera (if any).
+  const selectedDeviceId = (cameraSelect && cameraSelect.value) ? cameraSelect.value : undefined;
+  startStream(selectedDeviceId);
 }
+
 // Store the resulting model in the global scope of our app.
 var model = undefined;
+var currentStream = null; // holds the active MediaStream
 
-// Before we can use COCO-SSD class we must wait for it to finish
-// loading. Machine Learning models can be large and take a moment 
-// to get everything needed to run.
-// Note: cocoSsd is an external object loaded from our index.html
-// script tag import so ignore any warning in Glitch.
-cocoSsd.load().then(function (loadedModel) {
-  model = loadedModel;
-  // Show demo section now model is ready to use.
-  demosSection.classList.remove('invisible');
-});
+// Start camera stream for given deviceId (or default if undefined)
+async function startStream(deviceId) {
+  try {
+    // Stop existing stream tracks if any
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+      currentStream = null;
+    }
+
+    const constraints = deviceId ? { video: { deviceId: { exact: deviceId } } } : { video: true };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    currentStream = stream;
+    video.srcObject = stream;
+    // Use once:true so we don't attach multiple listeners when switching cameras
+    video.addEventListener('loadeddata', predictWebcam, { once: true });
+  } catch (err) {
+    console.error('Error starting camera stream:', err);
+  }
+}
+
+// Populate camera select dropdown with available video input devices.
+async function populateCameraList() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+  try {
+    // Try to get permission first so device labels are available
+    let tempStream = null;
+    try {
+      tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    } catch (e) {
+      // Permission denied or no camera; continue to enumerate anyway
+      console.warn('Could not get temporary stream to fetch device labels.', e);
+    }
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+    if (cameraSelect) {
+      cameraSelect.innerHTML = '';
+      videoDevices.forEach((device, index) => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.text = device.label || `Camera ${index + 1}`;
+        cameraSelect.appendChild(option);
+      });
+
+      if (videoDevices.length > 0) {
+        cameraSelect.style.display = '';
+      }
+    }
+    if (cameraLabel && videoDevices.length > 0) {
+      cameraLabel.style.display = '';
+    }
+
+    // Stop temporary stream used for permissions
+    if (tempStream) {
+      tempStream.getTracks().forEach(t => t.stop());
+    }
+  } catch (e) {
+    console.error('Error enumerating devices:', e);
+  }
+}
+
+// If user changes selected camera while webcam is active, restart stream
+if (cameraSelect) {
+  cameraSelect.addEventListener('change', function() {
+    if (enableWebcamButton.classList.contains('removed')) {
+      startStream(cameraSelect.value);
+    }
+  });
+}
+
 var children = [];
 var lastPersonCount = 0;
 var maxPersonCount = 0; // Track max persons in 5s interval
@@ -137,3 +195,16 @@ function sendPersonCount() {
 }
 
 setInterval(sendPersonCount, 5000);
+
+// Before we can use COCO-SSD class we must wait for it to finish
+// loading. Machine Learning models can be large and take a moment 
+// to get everything needed to run.
+// Note: cocoSsd is an external object loaded from our index.html
+// script tag import so ignore any warning in Glitch.
+cocoSsd.load().then(function (loadedModel) {
+  model = loadedModel;
+  // Show demo section now model is ready to use.
+  demosSection.classList.remove('invisible');
+  // Populate the camera list so user can choose device like webcamtests
+  populateCameraList();
+});
