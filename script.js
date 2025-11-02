@@ -6,7 +6,6 @@ const personCountEl = document.getElementById('personCount');
 const cameraSelect = document.getElementById('cameraSelect');
 const cameraLabel = document.getElementById('cameraLabel');
 const personThreshold = document.getElementById('personThreshold');
-const personThresholdValue = document.getElementById('personThresholdValue');
 const thresholdLabel = document.getElementById('thresholdLabel');
 
 // Check if webcam access is supported.
@@ -101,12 +100,11 @@ async function populateCameraList() {
     }
 
     // Show threshold controls when demo is ready
-    if (personThreshold && personThresholdValue && thresholdLabel) {
+    if (personThreshold && thresholdLabel) {
       personThreshold.style.display = '';
-      personThresholdValue.style.display = '';
       thresholdLabel.style.display = '';
-      personThreshold.value = Math.round(personScoreThreshold * 100);
-      personThresholdValue.innerText = personThreshold.value + '%';
+      // Ensure select reflects default threshold (40%)
+      personThreshold.value = String(Math.round(personScoreThreshold * 100));
     }
 
     // Stop temporary stream used for permissions
@@ -118,12 +116,11 @@ async function populateCameraList() {
   }
 }
 
-// Update threshold from UI
+// Update threshold from UI (select change)
 if (personThreshold) {
-  personThreshold.addEventListener('input', function() {
+  personThreshold.addEventListener('change', function() {
     const v = parseInt(personThreshold.value, 10);
-    personScoreThreshold = v / 100;
-    if (personThresholdValue) personThresholdValue.innerText = v + '%';
+    if (!isNaN(v)) personScoreThreshold = v / 100;
   });
 }
 

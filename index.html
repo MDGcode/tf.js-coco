@@ -14,10 +14,20 @@
         <button id="webcamButton">Enable Webcam</button>
         <label for="cameraSelect" id="cameraLabel" class="camera-label" style="display:none;margin-left:8px;">Camera:</label>
         <select id="cameraSelect" style="display:none;margin-left:6px;"></select>
-        <!-- Person threshold UI -->
+        <!-- Person threshold UI (dropdown 10..100 step 10) -->
         <label for="personThreshold" id="thresholdLabel" style="display:none;margin-left:12px;">Person threshold:</label>
-        <input id="personThreshold" type="range" min="0" max="100" value="40" style="display:none;vertical-align:middle;margin-left:6px;">
-        <span id="personThresholdValue" style="display:none;margin-left:8px;">40%</span>
+        <select id="personThreshold" style="display:none;margin-left:6px;vertical-align:middle;">
+          <option value="10">10%</option>
+          <option value="20">20%</option>
+          <option value="30">30%</option>
+          <option value="40" selected>40%</option>
+          <option value="50">50%</option>
+          <option value="60">60%</option>
+          <option value="70">70%</option>
+          <option value="80">80%</option>
+          <option value="90">90%</option>
+          <option value="100">100%</option>
+        </select>
         <!-- Person count display -->
         <div id="personCount" class="person-count">Persons: 0</div>
         <video id="webcam" autoplay muted width="640" height="480"></video>
