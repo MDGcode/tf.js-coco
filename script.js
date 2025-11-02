@@ -7,6 +7,7 @@ const cameraSelect = document.getElementById('cameraSelect');
 const cameraLabel = document.getElementById('cameraLabel');
 const personThreshold = document.getElementById('personThreshold');
 const thresholdLabel = document.getElementById('thresholdLabel');
+const roomIdInput = document.getElementById('roomIdInput');
 
 // Check if webcam access is supported.
 function getUserMediaSupported() {
@@ -106,6 +107,12 @@ async function populateCameraList() {
       // Ensure select reflects default threshold (40%)
       personThreshold.value = String(Math.round(personScoreThreshold * 100));
     }
+    // Show room id input
+    if (roomIdInput) {
+      roomIdInput.style.display = '';
+      const roomLabel = document.getElementById('roomLabel');
+      if (roomLabel) roomLabel.style.display = '';
+    }
 
     // Stop temporary stream used for permissions
     if (tempStream) {
@@ -197,13 +204,20 @@ function predictWebcam() {
 
 // Send max person count to backend every 5 seconds
 function sendPersonCount() {
-  fetch('https://room-person-counter-backend.vercel.app/api/rooms/1', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ numberOfPersons: maxPersonCount })
-  })
+  // determine room id from UI (default 1)
+  let roomId = '1';
+  if (roomIdInput && roomIdInput.value) {
+    const parsed = parseInt(roomIdInput.value, 10);
+    if (!isNaN(parsed) && parsed > 0) roomId = String(parsed);
+  }
+
+  fetch(`https://room-person-counter-backend.vercel.app/api/rooms/${encodeURIComponent(roomId)}`, {
+     method: 'PUT',
+     headers: {
+       'Content-Type': 'application/json'
+     },
+     body: JSON.stringify({ numberOfPersons: maxPersonCount })
+   })
   .then(res => res.json())
   .then(data => {
     console.log('Sent max person count:', maxPersonCount, data);
