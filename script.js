@@ -55,6 +55,7 @@ cocoSsd.load().then(function (loadedModel) {
   demosSection.classList.remove('invisible');
 });
 var children = [];
+var lastPersonCount = 0;
 
 function predictWebcam() {
   // Now let's start classifying a frame in the stream.
@@ -72,12 +73,12 @@ function predictWebcam() {
     // they have a high confidence score.
     for (let n = 0; n < predictions.length; n++) {
       // Count persons
-      if (predictions[n].class === 'person' && predictions[n].score > 0.50) {
+      if (predictions[n].class === 'person' && predictions[n].score > 0.40) {
         personCount++;
       }
 
       // If we are over 66% sure we are sure we classified it right, draw it!
-      if (predictions[n].score > 0.50) {
+      if (predictions[n].score > 0.40) {
         const p = document.createElement('p');
         p.innerText = predictions[n].class  + ' - with ' 
             + Math.round(parseFloat(predictions[n].score) * 100) 
@@ -104,8 +105,30 @@ function predictWebcam() {
     if (personCountEl) {
       personCountEl.innerText = 'Persons: ' + personCount;
     }
-    
+    // Store last person count for API
+    lastPersonCount = personCount;
     // Call this function again to keep predicting when the browser is ready.
     window.requestAnimationFrame(predictWebcam);
   });
 }
+
+// Send person count to backend every 5 seconds
+function sendPersonCount() {
+  fetch('https://room-person-counter-backend.vercel.app/api/rooms/1', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ numberOfPersons: lastPersonCount })
+  })
+  .then(res => res.json())
+  .then(data => {
+    // Optionally log or handle response
+    console.log('Sent person count:', lastPersonCount, data);
+  })
+  .catch(err => {
+    console.error('Error sending person count:', err);
+  });
+}
+
+setInterval(sendPersonCount, 5000);
