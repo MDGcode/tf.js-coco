@@ -56,6 +56,7 @@ cocoSsd.load().then(function (loadedModel) {
 });
 var children = [];
 var lastPersonCount = 0;
+var maxPersonCount = 0; // Track max persons in 5s interval
 
 function predictWebcam() {
   // Now let's start classifying a frame in the stream.
@@ -107,27 +108,31 @@ function predictWebcam() {
     }
     // Store last person count for API
     lastPersonCount = personCount;
+    if (personCount > maxPersonCount) {
+      maxPersonCount = personCount;
+    }
     // Call this function again to keep predicting when the browser is ready.
     window.requestAnimationFrame(predictWebcam);
   });
 }
 
-// Send person count to backend every 5 seconds
+// Send max person count to backend every 5 seconds
 function sendPersonCount() {
   fetch('https://room-person-counter-backend.vercel.app/api/rooms/1', {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ numberOfPersons: lastPersonCount })
+    body: JSON.stringify({ numberOfPersons: maxPersonCount })
   })
   .then(res => res.json())
   .then(data => {
-    // Optionally log or handle response
-    console.log('Sent person count:', lastPersonCount, data);
+    console.log('Sent max person count:', maxPersonCount, data);
+    maxPersonCount = 0; // Reset after sending
   })
   .catch(err => {
     console.error('Error sending person count:', err);
+    maxPersonCount = 0; // Reset even on error
   });
 }
 
